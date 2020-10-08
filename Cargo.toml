@@ -1,0 +1,15 @@
+[package]
+name = "sdl-chip-8"
+version = "0.1.0"
+authors = ["Frederico Bittencourt <fred.rbittencourt@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rand = "0.7.3"
+
+[dependencies.sdl2]
+version = "0.34.3"
+default-features = false
+features = ["gfx"]
