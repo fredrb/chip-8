@@ -27,11 +27,7 @@ pub trait Chip8Machine {
 
     fn load_rom(&mut self, rom: &[u8]) -> Result<(), &'static str>;
 
-    fn run(&mut self);
-}
-
-trait DebugMachine {
-    fn dump_registers(&self);
+    fn run(&mut self) -> u16;
 }
 
 trait InstructionMachine {
@@ -42,13 +38,13 @@ trait InstructionMachine {
 
 pub struct Machine {
     memory: [u8;4096],
-    registers: [u8;16],
-    i: u16,
-    delay: u8,
-    timer: u8,
-    pc: usize,
-    sp: i16,
-    stack: Vec<u16>,
+    pub registers: [u8;16],
+    pub i: u16,
+    pub delay_timer: u8,
+    pub sound_timer: u8,
+    pub pc: usize,
+    pub sp: i16,
+    pub stack: Vec<u16>,
 
     pub cls: bool,
     pub draw: bool,
@@ -76,8 +72,8 @@ impl Chip8Machine for Machine {
             memory: [0;4096],
             registers: [0;16],
             i: 0,
-            delay: 0,
-            timer: 0,
+            delay_timer: 0,
+            sound_timer: 0,
             pc: 0,
             sp: -1,
             stack: vec!(0;16),
@@ -108,14 +104,24 @@ impl Chip8Machine for Machine {
         Ok(())
     }
 
-    fn run(&mut self) {
+    fn run(&mut self) -> u16 {
         // let sleep_time = time::Duration::from_millis(1);
         // thread::sleep(sleep_time);
-        if self.timer > 0 {
-            self.timer -= 1;
+        if self.delay_timer > 0 {
+            self.delay_timer -= 1;
+            println!("Delay Timer: {}", self.delay_timer);
         }
+        
+        if self.sound_timer > 0 {
+            self.sound_timer -= 1;
+            println!("Sound Timer: {}", self.sound_timer);
+        }
+        
         let instruction = self.fetch_instruction();
+        let ret: u16 = instruction.raw.clone();
+        println!("Executing OpCode => {}", format!("{:#x}", instruction.raw));
         self.run_opcode(instruction);
+        ret
     }
 }
 
@@ -288,7 +294,7 @@ impl OpCodes for Machine {
             panic!("Return when stack pointer not yet set")
         }
         self.pc = self.stack[self.sp as usize] as usize;
-        self.sp += 1;
+        self.sp -= 1;
         self.increment_pc();
     }
 
@@ -411,7 +417,7 @@ impl OpCodes for Machine {
     }
 
     fn get_delay(&mut self, x: u8) {
-        self.registers[x as usize] = self.delay;
+        self.registers[x as usize] = self.delay_timer;
         self.increment_pc();
     }
 
@@ -439,7 +445,7 @@ impl OpCodes for Machine {
     }
 
     fn delay_timer(&mut self, x: u8) {
-        self.timer = self.registers[x as usize];
+        self.delay_timer = self.registers[x as usize];
         self.increment_pc();
     }
 
@@ -505,7 +511,7 @@ impl OpCodes for Machine {
     }
 
     fn noop(&self) {
-        println!("Executing OpCode => {}", format!("{:#x}", self.fetch_instruction().raw));
-        println!("Noop")
+        // panic!("Noop");
+        // println!("[NoOp] Executing OpCode => {}", format!("{:#x}", self.fetch_instruction().raw));
     }
 }

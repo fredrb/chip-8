@@ -7,8 +7,45 @@ use std::thread;
 use std::time::Duration;
 use std::env;
 
+use std::fs::File;
+use std::io::prelude::*;
+use std::path::Path;
+
+struct Logger {
+    pub f: File,
+}
+
+impl Logger {
+    fn new(path: &Path) -> Self {
+        match File::create(path) {
+            Ok(f) => Logger { f },
+            Err(why) => panic!("Couldn't open/create file {}: {}", path.display(), why),
+        }
+    }
+
+    fn log_machine(&mut self, m: &cpu::Machine, last_instruction: u16) {
+        self.f.write(format!("\nINSTRUCTION: {:#x}", last_instruction).as_bytes());
+        self.f.write_all(format!("\nI: {} |", m.i).as_bytes());
+        self.f.write_all(format!("Timer: {} |", m.delay_timer).as_bytes());
+        self.f.write_all(format!("pc: {} | ", m.pc).as_bytes());
+        self.f.write_all(format!("sp: {} | ", m.sp).as_bytes());
+
+        self.f.write_all(String::from("\nStack:").as_bytes());
+        for i in m.stack.iter() {
+            self.f.write(format!("{} | ", i).as_bytes());
+        }
+
+        self.f.write_all(String::from("\nRegisters:").as_bytes());
+        for i in 0..15 {
+            self.f.write(format!("{:#x}: {} | ", i, m.registers[i]).as_bytes());
+        }
+    }
+}
+
 fn main() {
     let sleep_duration = Duration::from_millis(2);
+
+    let mut log = Logger::new(Path::new("./dump-machine.txt"));
 
     let args: Vec<String> = env::args().collect();
     let cartridge_filename = &args[1];
@@ -33,7 +70,8 @@ fn main() {
             chip8_machine.key = keypad as u8;
         }
 
-        chip8_machine.run();
+        let i = chip8_machine.run();
+        log.log_machine(&chip8_machine, i);
         if chip8_machine.draw {
             display.draw(&chip8_machine.screen);
             chip8_machine.draw = false;

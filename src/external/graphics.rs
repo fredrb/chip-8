@@ -17,7 +17,7 @@ impl Screen {
         let video_subsys = sdl_context.video().unwrap();
         let window = video_subsys
             .window(
-                "rust-sdl2_gfx: draw line & FPSManager",
+                "Chip 8 Emulator",
                 SCREEN_WIDTH,
                 SCREEN_HEIGHT,
             )

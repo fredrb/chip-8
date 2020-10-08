@@ -1,0 +1,41 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'Airplane.ch8'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=sdl-chip-8",
+                    "--package=sdl-chip-8"
+                ],
+                "filter": {
+                    "name": "sdl-chip-8",
+                    "kind": "bin"
+                }
+            },
+            "sourceLanguages": ["rust"],
+            "program": "${workspaceFolder}/target/debug/sdl-chip-8",
+            "args": [
+                "../chip8-roms/Airplane.ch8"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+    ]
+}
+
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        ,
+        
+    ]
+}
