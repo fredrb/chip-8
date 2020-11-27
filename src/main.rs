@@ -63,14 +63,14 @@ fn main() {
     let mut input = external::Input::new(&sdl_context);
 
     while let Ok(keypad) = input.poll() {
-        if keypad < 0 {
-            chip8_machine.key_pressed = false;
-        } else {
-            chip8_machine.key_pressed = true;
-            chip8_machine.key = keypad as u8;
-        }
+        // if keypad < 0 {
+        //     chip8_machine.key_pressed = false;
+        // } else {
+        //     chip8_machine.key_pressed = true;
+        //     chip8_machine.key = keypad as u8;
+        // }
 
-        let i = chip8_machine.run();
+        let i = chip8_machine.run(keypad);
         log.log_machine(&chip8_machine, i);
         if chip8_machine.draw {
             display.draw(&chip8_machine.screen);

@@ -12,7 +12,7 @@ impl Input {
     }
 
 
-    pub fn poll(&mut self) -> Result<i8, ()> {
+    pub fn poll(&mut self) -> Result<[bool; 16],()> {
 
         for event in self.events.poll_iter() {
             if let Event::Quit { .. } = event {
@@ -26,7 +26,7 @@ impl Input {
             .filter_map(Keycode::from_scancode)
             .collect();
 
-        // let mut chip8_keys = [false; 16];
+        let mut chip8_keys = [false; 16];
 
         for key in keys {
             let index = match key {
@@ -50,10 +50,10 @@ impl Input {
             };
 
             if let Some(i) = index {
-                return Ok(i)
+                chip8_keys[i] = true;
             }
         }
 
-        Ok(-1)
+        Ok(chip8_keys)
     }
 }

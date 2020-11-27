@@ -27,7 +27,7 @@ pub trait Chip8Machine {
 
     fn load_rom(&mut self, rom: &[u8]) -> Result<(), &'static str>;
 
-    fn run(&mut self) -> u16;
+    fn run(&mut self, key_map: [bool;16]) -> u16;
 }
 
 trait InstructionMachine {
@@ -51,6 +51,11 @@ pub struct Machine {
     pub screen: [[bool;32];64],
     pub key_pressed: bool,
     pub key: u8,
+    pub key_map: [bool;16],
+
+    pub waiting_key: bool,
+    buf_key_received: i8,
+    key_lock: u8,
 }
 
 impl InstructionMachine for Machine {
@@ -82,6 +87,10 @@ impl Chip8Machine for Machine {
             screen: [[false;32];64],
             key_pressed: false,
             key: 0,
+            waiting_key: false,
+            buf_key_received: -1,
+            key_lock: 0,
+            key_map: [false;16],
         };
         // Copy fontset
         for i in 0..80 {
@@ -104,9 +113,25 @@ impl Chip8Machine for Machine {
         Ok(())
     }
 
-    fn run(&mut self) -> u16 {
-        // let sleep_time = time::Duration::from_millis(1);
-        // thread::sleep(sleep_time);
+    fn run(&mut self, key_map: [bool;16]) -> u16 {
+        // if self.key_lock > 0 {
+        //     self.key_lock -= 1;
+        // }
+
+        // if key_input >= 0 && self.key_lock == 0 {
+        //     println!("key: {}", key_input);
+        //     self.key_pressed = true;
+        //     self.key_lock = 100;
+        //     self.buf_key_received = key_input.clone();
+        //     self.key = key_input.clone() as u8;
+        // }
+        // if self.waiting_key {
+        //      else {
+        //         return 0x0000;
+        //     }
+        // }
+
+        self.key_map = key_map;
         if self.delay_timer > 0 {
             self.delay_timer -= 1;
             println!("Delay Timer: {}", self.delay_timer);
@@ -116,12 +141,18 @@ impl Chip8Machine for Machine {
             self.sound_timer -= 1;
             println!("Sound Timer: {}", self.sound_timer);
         }
-        
+
         let instruction = self.fetch_instruction();
         let ret: u16 = instruction.raw.clone();
         println!("Executing OpCode => {}", format!("{:#x}", instruction.raw));
         self.run_opcode(instruction);
         ret
+        
+        // if self.waiting_key && key_map == -1 {
+        //     return 0;
+        // } else {
+            
+        // }
     }
 }
 
@@ -201,7 +232,7 @@ pub trait OpCodes {
     fn sound_timer(&mut self, x: u8);
 
     // 0xFX1E
-    fn memadd(&mut self, x: u8);
+    fn fx1e(&mut self, x: u8);
 
     // 0xFX29
     fn fontset(&mut self, x: u8);
@@ -238,15 +269,15 @@ impl OpCodes for Machine {
             i if i.match_masked(0xF00F, 0x5000) => self.cond_reg_equals(i.parts[1], i.parts[2]),
             i if i.match_masked(0xF000, 0x8000) => {
                 match (i.raw & 0x000F) as u8 {
-                    0x00 => self.set_reg(i.parts[1], i.parts[2]),
-                    0x01 => self.bitwise_or(i.parts[1], i.parts[2]),
-                    0x02 => self.bitwise_and(i.parts[1], i.parts[2]),
-                    0x03 => self.bitwise_xor(i.parts[1], i.parts[2]),
-                    0x04 => self.add_reg(i.parts[1], i.parts[2]),
-                    0x05 => self.sub_reg(i.parts[1], i.parts[2]),
-                    0x06 => self.shr(i.parts[1], i.parts[2]),
-                    0x07 => self.subn(i.parts[1], i.parts[2]),
-                    0x0E => self.shl(i.parts[1], i.parts[2]),
+                    0x0 => self.set_reg(i.parts[1], i.parts[2]),
+                    0x1 => self.bitwise_or(i.parts[1], i.parts[2]),
+                    0x2 => self.bitwise_and(i.parts[1], i.parts[2]),
+                    0x3 => self.bitwise_xor(i.parts[1], i.parts[2]),
+                    0x4 => self.add_reg(i.parts[1], i.parts[2]),
+                    0x5 => self.sub_reg(i.parts[1], i.parts[2]),
+                    0x6 => self.shr(i.parts[1], i.parts[2]),
+                    0x7 => self.subn(i.parts[1], i.parts[2]),
+                    0xE => self.shl(i.parts[1], i.parts[2]),
                     _ => self.noop(),
                 }
             },
@@ -256,7 +287,7 @@ impl OpCodes for Machine {
                     0x0A => self.get_key(i.parts[1]),
                     0x15 => self.delay_timer(i.parts[1]),
                     0x18 => self.sound_timer(i.parts[1]),
-                    0x1E => self.memadd(i.parts[1]),
+                    0x1E => self.fx1e(i.parts[1]),
                     0x29 => self.fontset(i.parts[1]),
                     0x55 => self.reg_dump(i.parts[1]),
                     0x65 => self.reg_load(i.parts[1]),
@@ -406,12 +437,12 @@ impl OpCodes for Machine {
         } else {
             self.registers[0xF] = 0x0;
         }
-        self.registers[y as usize] = (self.registers[y as usize] - self.registers[x as usize]) as u8;
+        self.registers[x as usize] = self.registers[y as usize].wrapping_sub(self.registers[x as usize]);
         self.increment_pc();
     }
 
     fn shl(&mut self, x: u8, _: u8) {
-        self.registers[0xF] = (self.registers[x as usize] >> 7) & 0x01;
+        self.registers[0xF] = (self.registers[x as usize] >> 7) & 0x1;
         self.registers[x as usize] = self.registers[x as usize] << 1;
         self.increment_pc();
     }
@@ -422,15 +453,26 @@ impl OpCodes for Machine {
     }
 
     fn get_key(&mut self, x: u8) {
-        if self.key_pressed {
-            self.registers[x as usize] = (self.key & 0x0F) as u8;
+        let mut is_key_pressed = false;
+        let mut key_pressed = 0x0;
+        
+        for i in 0x0..0xf {
+            if self.key_map[i] {
+                is_key_pressed = true;
+                key_pressed = i;
+            }
+        }
+        
+
+        if is_key_pressed {
+            self.registers[x as usize] = (key_pressed & 0x0F) as u8;
             self.increment_pc();
         }
     }
 
     // 0xEX9E
     fn if_key (&mut self, x: u8) {
-        if self.key_pressed && self.registers[x as usize] == self.key {
+        if self.key_map[self.registers[x as usize] as usize] {
             self.increment_pc();
         }
         self.increment_pc();
@@ -438,7 +480,7 @@ impl OpCodes for Machine {
 
     // 0xEXA1
     fn if_not_key (&mut self, x: u8) {
-        if !self.key_pressed || self.registers[x as usize] != self.key {
+        if !self.key_map[self.registers[x as usize] as usize] {
             self.increment_pc();
         }
         self.increment_pc();
@@ -454,14 +496,14 @@ impl OpCodes for Machine {
         self.increment_pc();
     }
 
-    fn memadd(&mut self, x: u8) {
-        self.memory[self.i as usize] = 
-            (self.memory[self.i as usize] + self.registers[x as usize]) as u8;
+    fn fx1e(&mut self, x: u8) {
+        self.i += self.registers[x as usize] as u16;
         self.increment_pc();
     }
 
     fn fontset(&mut self, x: u8) {
-        self.i = (x * 5) as u16;
+        let font_index = self.registers[x as usize];
+        self.i = (font_index * 5) as u16;
         self.increment_pc();
     }
 
