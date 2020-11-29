@@ -535,6 +535,7 @@ impl OpCodes for Machine {
 
         let sprite = &self.memory[self.i as usize .. (self.i + (height as u16)) as usize];
 
+        let mut collision = false;
         for y in 0..sprite.len() {
             let sprite_byte = sprite[y];
             for x in 0..8 {
@@ -542,12 +543,13 @@ impl OpCodes for Machine {
                 let y_index = ((y_start + (y as u8)) % 32) as usize;
                 if ((sprite_byte >> (7 - x)) & 0x01) == 0x01 {
                     if self.screen[x_index][y_index] {
-                        self.registers[0xF] = 0x1;
+                        collision = true;
                     }
                     self.screen[x_index][y_index] = !self.screen[x_index][y_index];
                 }
             } 
         }
+        self.registers[0xF] = if collision { 0x1 } else { 0x0 };
         self.draw = true;
         self.increment_pc();
     }

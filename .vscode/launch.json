@@ -22,7 +22,7 @@
             "sourceLanguages": ["rust"],
             "program": "${workspaceFolder}/target/debug/sdl-chip-8",
             "args": [
-                "../chip8-roms/Airplane.ch8"
+                "../my-roms/01_test.ch8"
             ],
             "cwd": "${workspaceFolder}"
         },
